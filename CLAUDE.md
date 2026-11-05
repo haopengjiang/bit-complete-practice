@@ -24,7 +24,9 @@ server/
 client/
   vite.config.ts          # dev proxy: /api -> http://localhost:3001
   src/App.tsx             # fetch + loading / error / no-table states, warnings panel, table
-  src/DataTable.tsx       # generic table: headers from `columns` (shown even with 0 rows)
+  src/DataTable.tsx       # generic sortable table: headers from `columns` (shown even with 0 rows)
+  src/sortRows.ts         # pure sort helpers: isNumericCell, compareCells, sortRows
+  src/sortRows.test.ts
   src/types.ts            # Row, ParseWarning, TableData (mirror the server types)
 ```
 
@@ -35,8 +37,12 @@ Install once: `npm --prefix server install` and `npm --prefix client install`.
 ```sh
 npm run dev:server     # terminal 1: Express on http://localhost:3001
 npm run dev:client     # terminal 2: Vite on http://localhost:5173
-npm test               # parser unit tests (node:test via tsx)
+npm test               # server parser tests + client sort tests
+npm --prefix server test   # node:test via tsx
+npm --prefix client test   # node:test via Node's --experimental-strip-types (no extra deps)
 ```
+
+Client `*.test.ts` files are excluded in `tsconfig.app.json`, because the app config only loads `vite/client` types.
 
 Type checks and builds:
 
@@ -67,6 +73,16 @@ Parsing rules (covered by `parseMarkdown.test.ts`):
 - Text outside the table is ignored, but it must go before or after the table, not between rows.
 
 `parseMarkdownTable` and `GET /api/data` both return `{ columns, rows, warnings }`. Each warning is `{ line, message }`, with `line` 1-based in `data.md`. The server also logs warnings to its console as `data.md:<line>: <message>`.
+
+## Table sorting
+
+Clicking a header cycles ascending ▲, descending ▼, then the original order. `DataTable` keeps `{ column, direction }` in state and derives `visibleRows` with `useMemo`; rows are never copied into state.
+
+Sorting rules (covered by `sortRows.test.ts`):
+- A cell is a number only if its trimmed text is a plain decimal (`-3`, `2.5`, `.5`). Values like `1,200`, `12px`, `0x10` and `1e3` are text.
+- Numbers compare by value and come before text. Text compares case-insensitively with natural digit order (`item2` before `item10`).
+- Empty or whitespace-only cells always go last, in both directions.
+- The sort is stable and never mutates the input.
 
 ## Conventions
 
