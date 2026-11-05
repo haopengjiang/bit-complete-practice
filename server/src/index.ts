@@ -8,15 +8,20 @@ const DATA_FILE = new URL("../data.md", import.meta.url);
 
 const app = express();
 
-/** GET /api/data: data.md parsed into row objects, re-read on every request. */
+/** GET /api/data: data.md parsed into { columns, rows, warnings }, re-read on every request. */
 app.get("/api/data", async (_req, res) => {
+  let markdown: string;
   try {
-    const markdown = await readFile(DATA_FILE, "utf8");
-    res.json(parseMarkdownTable(markdown));
+    markdown = await readFile(DATA_FILE, "utf8");
   } catch (err) {
     console.error("Failed to read data.md:", err);
     res.status(500).json({ error: "Could not read data file" });
+    return;
   }
+
+  const result = parseMarkdownTable(markdown);
+  for (const w of result.warnings) console.warn(`data.md:${w.line}: ${w.message}`);
+  res.json(result);
 });
 
 app.listen(PORT, () => {

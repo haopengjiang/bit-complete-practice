@@ -8,11 +8,10 @@ const cellStyle: CSSProperties = {
   textAlign: 'left',
 }
 const headerStyle: CSSProperties = { ...cellStyle, background: '#f3f3f3' }
+const emptyStyle: CSSProperties = { ...cellStyle, color: '#666', fontStyle: 'italic' }
 
-/** Generic table: columns come from the first row's keys, one <tr> per row. */
-function DataTable({ rows }: { rows: Row[] }) {
-  const columns = Object.keys(rows[0] ?? {})
-
+/** Generic table: headers from `columns` (shown even with no rows), one <tr> per row. */
+function DataTable({ columns, rows }: { columns: string[]; rows: Row[] }) {
   return (
     <table style={tableStyle}>
       <thead>
@@ -25,15 +24,23 @@ function DataTable({ rows }: { rows: Row[] }) {
         </tr>
       </thead>
       <tbody>
-        {rows.map((row, i) => (
-          <tr key={i}>
-            {columns.map((col) => (
-              <td key={col} style={cellStyle}>
-                {row[col]}
-              </td>
-            ))}
+        {rows.length === 0 ? (
+          <tr>
+            <td colSpan={columns.length} style={emptyStyle}>
+              No rows
+            </td>
           </tr>
-        ))}
+        ) : (
+          rows.map((row, i) => (
+            <tr key={i}>
+              {columns.map((col) => (
+                <td key={col} style={cellStyle}>
+                  {row[col]}
+                </td>
+              ))}
+            </tr>
+          ))
+        )}
       </tbody>
     </table>
   )

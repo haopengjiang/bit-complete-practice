@@ -18,13 +18,14 @@ package.json              # root: scripts only, no dependencies
 server/
   data.md                 # the data source (see format below)
   src/index.ts            # Express app, GET /api/data, port 3001 (PORT env overrides)
-  src/parseMarkdown.ts    # pure parser: parseMarkdownTable(text) => Row[]
+  src/parseMarkdown.ts    # pure parser: parseMarkdownTable(text) => { columns, rows, warnings }
+  tsconfig.build.json     # build config that leaves *.test.ts out of dist/
   src/parseMarkdown.test.ts
 client/
   vite.config.ts          # dev proxy: /api -> http://localhost:3001
-  src/App.tsx             # fetch + loading / error / empty / table states
-  src/DataTable.tsx       # generic table, columns from the first row's keys
-  src/types.ts            # Row = Record<string, string>
+  src/App.tsx             # fetch + loading / error / no-table states, warnings panel, table
+  src/DataTable.tsx       # generic table: headers from `columns` (shown even with 0 rows)
+  src/types.ts            # Row, ParseWarning, TableData (mirror the server types)
 ```
 
 ## Running
@@ -60,8 +61,12 @@ Parsing rules (covered by `parseMarkdown.test.ts`):
 - Only the **first table** is parsed: the first unbroken run of lines starting with `|`. Any non-table line, including a blank line, ends it.
 - Line 2 of the table **must be a separator** (`|---|`, alignment colons allowed), or the result is `[]`.
 - Every line after the separator is a data row, even one whose cells are all `-`.
-- Cells are trimmed. Missing cells become `""` and extra cells are dropped.
+- Cells are trimmed, and `\|` inside a cell is a literal pipe, not a column break.
+- Missing cells become `""`. Extra cells are dropped **with a warning**.
+- Duplicate headers are renamed `name_2`, `name_3`, … **with a warning**. A rename never reuses an existing header name.
 - Text outside the table is ignored, but it must go before or after the table, not between rows.
+
+`parseMarkdownTable` and `GET /api/data` both return `{ columns, rows, warnings }`. Each warning is `{ line, message }`, with `line` 1-based in `data.md`. The server also logs warnings to its console as `data.md:<line>: <message>`.
 
 ## Conventions
 
