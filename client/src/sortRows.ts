@@ -19,15 +19,28 @@ export function compareCells(a: string, b: string): number {
   return a.trim().localeCompare(b.trim(), undefined, { numeric: true, sensitivity: 'base' })
 }
 
-/** Return a sorted copy of rows by `column`; empty cells stay last in both directions. */
-export function sortRows(rows: Row[], column: string, direction: SortDirection): Row[] {
+/** A row paired with its original position, used as a stable React key across sorts. */
+export type KeyedRow = { key: number; row: Row }
+
+/** Record each row's original position. Wraps instead of adding a field, so no column can collide. */
+export function withKeys(rows: Row[]): KeyedRow[] {
+  return rows.map((row, index) => ({ key: index, row }))
+}
+
+/** Return a sorted copy of keyed rows by `column`; empty cells stay last in both directions. */
+export function sortKeyedRows(items: KeyedRow[], column: string, direction: SortDirection): KeyedRow[] {
   const sign = direction === 'asc' ? 1 : -1
-  return [...rows].sort((ra, rb) => {
-    const a = ra[column] ?? ''
-    const b = rb[column] ?? ''
+  return [...items].sort((ka, kb) => {
+    const a = ka.row[column] ?? ''
+    const b = kb.row[column] ?? ''
     const aEmpty = a.trim() === ''
     const bEmpty = b.trim() === ''
     if (aEmpty || bEmpty) return Number(aEmpty) - Number(bEmpty) // empties last, not flipped
     return sign * compareCells(a, b)
   })
+}
+
+/** Return a sorted copy of rows by `column` (convenience wrapper without keys). */
+export function sortRows(rows: Row[], column: string, direction: SortDirection): Row[] {
+  return sortKeyedRows(withKeys(rows), column, direction).map((k) => k.row)
 }

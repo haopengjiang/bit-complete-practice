@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
-import { sortRows } from './sortRows.ts'
+import { sortKeyedRows, withKeys } from './sortRows.ts'
 import type { SortDirection } from './sortRows.ts'
 import type { Row } from './types.ts'
 
@@ -34,10 +34,13 @@ function nextSort(current: Sort, column: string): Sort {
 function DataTable({ columns, rows }: { columns: string[]; rows: Row[] }) {
   const [sort, setSort] = useState<Sort>(null)
 
-  // Derived from props + sort state; recomputed only when either changes.
+  // Record each row's original position BEFORE sorting; it is the row's stable key.
+  const keyedRows = useMemo(() => withKeys(rows), [rows])
+
+  // Derived from keyed rows + sort state; recomputed only when either changes.
   const visibleRows = useMemo(
-    () => (sort ? sortRows(rows, sort.column, sort.direction) : rows),
-    [rows, sort],
+    () => (sort ? sortKeyedRows(keyedRows, sort.column, sort.direction) : keyedRows),
+    [keyedRows, sort],
   )
 
   return (
@@ -72,8 +75,8 @@ function DataTable({ columns, rows }: { columns: string[]; rows: Row[] }) {
             </td>
           </tr>
         ) : (
-          visibleRows.map((row, i) => (
-            <tr key={i}>
+          visibleRows.map(({ key, row }) => (
+            <tr key={key}>
               {columns.map((col) => (
                 <td key={col} style={cellStyle}>
                   {row[col]}

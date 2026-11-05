@@ -25,7 +25,7 @@ client/
   vite.config.ts          # dev proxy: /api -> http://localhost:3001
   src/App.tsx             # fetch + loading / error / no-table states, warnings panel, table
   src/DataTable.tsx       # generic sortable table: headers from `columns` (shown even with 0 rows)
-  src/sortRows.ts         # pure sort helpers: isNumericCell, compareCells, sortRows
+  src/sortRows.ts         # pure sort helpers: isNumericCell, compareCells, withKeys, sortKeyedRows, sortRows
   src/sortRows.test.ts
   src/types.ts            # Row, ParseWarning, TableData (mirror the server types)
 ```
@@ -42,7 +42,7 @@ npm --prefix server test   # node:test via tsx
 npm --prefix client test   # node:test via Node's --experimental-strip-types (no extra deps)
 ```
 
-Client `*.test.ts` files are excluded in `tsconfig.app.json`, because the app config only loads `vite/client` types.
+Client `*.test.ts` files are type-checked by `tsconfig.node.json`, which loads Node types, and are excluded from `tsconfig.app.json`, which only loads `vite/client` types. `tsc -b` checks both.
 
 Type checks and builds:
 
@@ -76,7 +76,10 @@ Parsing rules (covered by `parseMarkdown.test.ts`):
 
 ## Table sorting
 
-Clicking a header cycles ascending ▲, descending ▼, then the original order. `DataTable` keeps `{ column, direction }` in state and derives `visibleRows` with `useMemo`; rows are never copied into state.
+Clicking a header cycles ascending ▲, descending ▼, then the original order. `DataTable` keeps `{ column, direction }` in state. Everything else is derived with `useMemo`; rows are never copied into state:
+- `keyedRows = withKeys(rows)` wraps each row as `{ key, row }`, where `key` is its **original position**, recorded *before* sorting.
+- `visibleRows = sortKeyedRows(keyedRows, …)`. Each `<tr>` uses `key`, so a row keeps its identity when the order changes.
+- Don't use the rendered index, random ids, or a field added to the row object as the key. Keys are stable within one data load only; a re-fetch after `data.md` changes can shift them.
 
 Sorting rules (covered by `sortRows.test.ts`):
 - A cell is a number only if its trimmed text is a plain decimal (`-3`, `2.5`, `.5`). Values like `1,200`, `12px`, `0x10` and `1e3` are text.

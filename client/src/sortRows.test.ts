@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { compareCells, isNumericCell, sortRows } from './sortRows.ts'
+import { compareCells, isNumericCell, sortKeyedRows, sortRows, withKeys } from './sortRows.ts'
 
 type Row = Record<string, string>
 const col = (rows: Row[], key: string) => rows.map((r) => r[key])
@@ -63,6 +63,41 @@ test('does not mutate the input array', () => {
 test('a missing key sorts like an empty cell', () => {
   const rows: Row[] = [{ id: '1' }, { id: '2', x: 'z' }]
   assert.deepEqual(col(sortRows(rows, 'x', 'asc'), 'id'), ['2', '1'])
+})
+
+// --- Stable row keys: record the original position before sorting -----------
+
+test('withKeys tags each row with its original position, wrapping (not copying) the row', () => {
+  const rows = [{ id: 'a' }, { id: 'b' }]
+  const keyed = withKeys(rows)
+  assert.deepEqual(keyed, [
+    { key: 0, row: { id: 'a' } },
+    { key: 1, row: { id: 'b' } },
+  ])
+  assert.equal(keyed[0]!.row, rows[0]) // same object
+})
+
+test('withKeys does not add fields to the row objects', () => {
+  const rows = [{ id: '1', name: 'A' }]
+  withKeys(rows)
+  assert.deepEqual(Object.keys(rows[0]!), ['id', 'name'])
+})
+
+test('sortKeyedRows keeps each original key with its row after sorting', () => {
+  const rows = [{ id: '10' }, { id: '' }, { id: '2' }, { id: '1' }]
+  const keyed = withKeys(rows)
+
+  const asc = sortKeyedRows(keyed, 'id', 'asc')
+  assert.deepEqual(asc.map((k) => k.key), [3, 2, 0, 1])
+  assert.deepEqual(sortKeyedRows(keyed, 'id', 'desc').map((k) => k.key), [0, 2, 3, 1])
+  for (const k of asc) assert.equal(k.row, rows[k.key]) // key still points at the same row
+})
+
+test('sortKeyedRows does not mutate its input and handles an empty table', () => {
+  const keyed = withKeys([{ id: '2' }, { id: '1' }])
+  sortKeyedRows(keyed, 'id', 'asc')
+  assert.deepEqual(keyed.map((k) => k.key), [0, 1])
+  assert.deepEqual(sortKeyedRows([], 'id', 'asc'), [])
 })
 
 test('isNumericCell accepts plain decimals only', () => {
